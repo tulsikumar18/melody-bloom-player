@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useRef, useEffect } from 'react';
 import { Track, Playlist } from '@/lib/data';
+import { toast } from '@/components/ui/use-toast';
 
 interface PlayerContextProps {
   currentTrack: Track | null;
@@ -36,9 +37,119 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off');
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  
+  // Audio element reference
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Initialize audio element
+  useEffect(() => {
+    audioRef.current = new Audio();
+    
+    // Set initial volume
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+    
+    // Clean up on unmount
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+  
+  // Handle audio events
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    const handleTimeUpdate = () => {
+      setProgress(audio.currentTime);
+    };
+    
+    const handleDurationChange = () => {
+      setDuration(audio.duration);
+    };
+    
+    const handleEnded = () => {
+      if (repeatMode === 'one') {
+        audio.currentTime = 0;
+        audio.play().catch(err => console.error('Error replaying track:', err));
+      } else {
+        nextTrack();
+      }
+    };
+    
+    const handleError = (e: ErrorEvent) => {
+      console.error('Audio playback error:', e);
+      toast({
+        title: "Playback Error",
+        description: "There was an error playing this track. Please try another.",
+        variant: "destructive",
+      });
+    };
+    
+    // Add event listeners
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('durationchange', handleDurationChange);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError as EventListener);
+    
+    // Clean up event listeners
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('durationchange', handleDurationChange);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError as EventListener);
+    };
+  }, [nextTrack, repeatMode]);
+  
+  // Update audio source when current track changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
+    
+    // In a real app, this would be the track's audio URL
+    // For our demo, we'll use a sample audio file
+    const audioUrl = currentTrack.audioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+    
+    // Only change source if it's different
+    if (audio.src !== audioUrl) {
+      audio.src = audioUrl;
+      audio.load();
+      
+      if (isPlaying) {
+        audio.play().catch(err => {
+          console.error('Error playing track:', err);
+          setIsPlaying(false);
+        });
+      }
+    }
+  }, [currentTrack, isPlaying]);
+  
+  // Update playback state
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    if (isPlaying) {
+      audio.play().catch(err => {
+        console.error('Error playing track:', err);
+        setIsPlaying(false);
+      });
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying]);
+  
+  // Update volume when changed
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
 
-  // In a real implementation, these functions would interact with the Web Audio API
-  // or HTML5 audio elements to control playback
   const playTrack = (track: Track, playlist?: Playlist) => {
     setCurrentTrack(track);
     setIsPlaying(true);
@@ -47,9 +158,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       // Set queue based on playlist
       setQueue(playlist.tracks.filter(t => t.id !== track.id));
     }
-    // Simulate a track duration
-    setDuration(track.duration);
-    setProgress(0);
   };
 
   const pauseTrack = () => {
@@ -76,6 +184,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const prevTrack = () => {
+    const audio = audioRef.current;
+    
+    // If current time is more than 3 seconds, restart the track
+    if (audio && audio.currentTime > 3) {
+      audio.currentTime = 0;
+      return;
+    }
+    
     if (!currentPlaylist || !currentPlaylist.tracks.length) return;
     
     const currentIndex = currentPlaylist.tracks.findIndex(
@@ -110,35 +226,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const seekTo = (position: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = position;
+    }
     setProgress(position);
   };
-
-  // In a real implementation, we would update the progress based on actual playback
-  // For now, we'll simulate progress to show the UI
-  React.useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isPlaying && currentTrack) {
-      interval = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = prev + 1;
-          if (newProgress >= duration) {
-            if (repeatMode === 'one') {
-              return 0; // Reset progress
-            } else {
-              nextTrack(); // Go to next track
-              return 0;
-            }
-          }
-          return newProgress;
-        });
-      }, 1000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isPlaying, currentTrack, duration, repeatMode]);
 
   return (
     <PlayerContext.Provider

@@ -1,27 +1,57 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, Library, Search, Heart } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, Library, Search, Heart, UploadCloud } from 'lucide-react';
 import { playlists } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import CreatePlaylistForm from '@/components/music/CreatePlaylistForm';
 import UserProfile from '@/components/user/UserProfile';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from '@/components/ui/use-toast';
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
   const handleCreatePlaylist = (playlistData: { name: string; description: string }) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to create playlists.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+    
     console.log('Create playlist:', playlistData);
     // This will be implemented with Supabase later
+    toast({
+      title: "Playlist Created",
+      description: `${playlistData.name} has been created successfully.`
+    });
   };
 
   const handleLogin = () => {
     console.log('Login clicked');
-    // This will be implemented with Supabase later
+    navigate('/auth');
+  };
+  
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
+  };
+  
+  const handleSettings = () => {
+    toast({
+      title: "Settings",
+      description: "Settings page is not implemented yet."
+    });
   };
 
   return (
@@ -30,8 +60,11 @@ export function Sidebar() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-primary">Melody</h1>
           <UserProfile 
-            isLoggedIn={false}
+            isLoggedIn={!!user}
+            userName={user?.user_metadata?.username || user?.email || "User"}
             onLogin={handleLogin}
+            onLogout={handleLogout}
+            onSettings={handleSettings}
           />
         </div>
         
@@ -71,6 +104,18 @@ export function Sidebar() {
           >
             <Library size={20} />
             <span>Your Library</span>
+          </Link>
+          <Link
+            to="/upload"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+              isActive('/upload') 
+                ? "bg-secondary text-foreground" 
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+            )}
+          >
+            <UploadCloud size={20} />
+            <span>Upload Music</span>
           </Link>
         </nav>
 
