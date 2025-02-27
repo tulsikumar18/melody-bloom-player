@@ -11,6 +11,7 @@ import { PlayerProvider } from "@/context/PlayerContext";
 import Index from "./pages/Index";
 import Playlist from "./pages/Playlist";
 import Library from "./pages/Library";
+import Search from "./pages/Search";
 import NotFound from "./pages/NotFound";
 
 // Components
@@ -34,7 +35,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/playlist/:id" element={<Playlist />} />
                 <Route path="/library" element={<Library />} />
-                <Route path="/search" element={<Index />} />
+                <Route path="/search" element={<Search />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <NowPlaying />

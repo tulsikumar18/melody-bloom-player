@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import PageContainer from '@/components/layout/PageContainer';
 import PlaylistCard from '@/components/music/PlaylistCard';
 import { playlists } from '@/lib/data';
-import { Grid, List, Clock, Music } from 'lucide-react';
+import { Grid, List, Clock, Music, Play } from 'lucide-react';
 
 export default function Library() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
