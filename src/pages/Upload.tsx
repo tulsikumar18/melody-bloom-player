@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { UploadTrackData, uploadTrack } from '@/lib/track-service';
 import { UploadCloud, Music } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function Upload() {
   const { user } = useAuth();
@@ -22,6 +23,8 @@ export default function Upload() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [coverArtPreview, setCoverArtPreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [audioInfo, setAudioInfo] = useState<{ duration: string, size: string } | null>(null);
   
   // Redirect to auth page if not logged in
   React.useEffect(() => {
@@ -38,6 +41,27 @@ export default function Upload() {
   const handleCoverArtChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Validate file size
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File Too Large",
+          description: "Cover art must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid File Type",
+          description: "Cover art must be an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setCoverArt(file);
       
       // Create a preview
@@ -51,7 +75,53 @@ export default function Upload() {
   
   const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setAudioFile(e.target.files[0]);
+      const file = e.target.files[0];
+      
+      // Validate file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Audio file must be less than 50MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('audio/')) {
+        toast({
+          title: "Invalid File Type",
+          description: "File must be an audio file",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setAudioFile(file);
+      
+      // Display file info
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setAudioInfo({
+        duration: "Calculating...",
+        size: `${sizeMB} MB`
+      });
+      
+      // Try to get audio duration
+      try {
+        const audio = new Audio();
+        audio.addEventListener('loadedmetadata', () => {
+          const minutes = Math.floor(audio.duration / 60);
+          const seconds = Math.floor(audio.duration % 60);
+          setAudioInfo(prev => ({
+            ...prev!,
+            duration: `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
+          }));
+        });
+        
+        audio.src = URL.createObjectURL(file);
+      } catch (error) {
+        console.error('Error getting audio duration:', error);
+      }
     }
   };
   
@@ -78,6 +148,7 @@ export default function Upload() {
     }
     
     setIsUploading(true);
+    setUploadProgress(10); // Start progress
     
     try {
       const trackData: UploadTrackData = {
@@ -88,7 +159,22 @@ export default function Upload() {
         audioFile,
       };
       
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          const newProgress = prev + 5;
+          if (newProgress >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return newProgress;
+        });
+      }, 500);
+      
       await uploadTrack(trackData, user.id);
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
       
       toast({
         title: "Upload Successful",
@@ -96,15 +182,21 @@ export default function Upload() {
       });
       
       // Reset form
-      setTitle('');
-      setArtist('');
-      setAlbum('');
-      setCoverArt(null);
-      setAudioFile(null);
-      setCoverArtPreview(null);
+      setTimeout(() => {
+        setTitle('');
+        setArtist('');
+        setAlbum('');
+        setCoverArt(null);
+        setAudioFile(null);
+        setCoverArtPreview(null);
+        setAudioInfo(null);
+        setUploadProgress(0);
+        setIsUploading(false);
+        
+        // Navigate to library
+        navigate('/library');
+      }, 1000);
       
-      // Navigate to library
-      navigate('/library');
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -112,7 +204,7 @@ export default function Upload() {
         description: error.message || "There was an error uploading your track.",
         variant: "destructive",
       });
-    } finally {
+      setUploadProgress(0);
       setIsUploading(false);
     }
   };
@@ -142,6 +234,7 @@ export default function Upload() {
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Enter track title"
                       required
+                      disabled={isUploading}
                     />
                   </div>
                   
@@ -153,6 +246,7 @@ export default function Upload() {
                       onChange={(e) => setArtist(e.target.value)}
                       placeholder="Enter artist name"
                       required
+                      disabled={isUploading}
                     />
                   </div>
                   
@@ -164,6 +258,7 @@ export default function Upload() {
                       onChange={(e) => setAlbum(e.target.value)}
                       placeholder="Enter album name"
                       required
+                      disabled={isUploading}
                     />
                   </div>
                   
@@ -178,12 +273,14 @@ export default function Upload() {
                           accept="audio/*"
                           className="sr-only"
                           required
+                          disabled={isUploading}
                         />
                         <Button 
                           type="button"
                           variant="outline"
                           className="w-full flex items-center justify-center gap-2"
                           onClick={() => document.getElementById('audioFile')?.click()}
+                          disabled={isUploading}
                         >
                           <Music size={18} />
                           <span>Select Audio File</span>
@@ -195,6 +292,15 @@ export default function Upload() {
                         </span>
                       )}
                     </div>
+                    
+                    {audioInfo && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between">
+                          <span>Size: {audioInfo.size}</span>
+                          <span>Duration: {audioInfo.duration}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -210,6 +316,7 @@ export default function Upload() {
                       accept="image/*"
                       className="sr-only"
                       required
+                      disabled={isUploading}
                     />
                     
                     {coverArtPreview ? (
@@ -221,7 +328,7 @@ export default function Upload() {
                     ) : (
                       <div 
                         className="flex flex-col items-center justify-center text-muted-foreground p-4 text-center h-full w-full cursor-pointer"
-                        onClick={() => document.getElementById('coverArt')?.click()}
+                        onClick={() => !isUploading && document.getElementById('coverArt')?.click()}
                       >
                         <UploadCloud size={48} className="mb-2" />
                         <p>Click to select cover image</p>
@@ -231,7 +338,7 @@ export default function Upload() {
                       </div>
                     )}
                     
-                    {coverArtPreview && (
+                    {coverArtPreview && !isUploading && (
                       <Button
                         type="button"
                         size="sm"
@@ -248,6 +355,16 @@ export default function Upload() {
                   </div>
                 </div>
               </div>
+              
+              {isUploading && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
             </CardContent>
             
             <CardFooter>

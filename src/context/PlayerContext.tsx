@@ -41,115 +41,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   // Audio element reference
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Initialize audio element
-  useEffect(() => {
-    audioRef.current = new Audio();
-    
-    // Set initial volume
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
-    
-    // Clean up on unmount
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-    };
-  }, []);
-  
-  // Handle audio events
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    
-    const handleTimeUpdate = () => {
-      setProgress(audio.currentTime);
-    };
-    
-    const handleDurationChange = () => {
-      setDuration(audio.duration);
-    };
-    
-    const handleEnded = () => {
-      if (repeatMode === 'one') {
-        audio.currentTime = 0;
-        audio.play().catch(err => console.error('Error replaying track:', err));
-      } else {
-        nextTrack();
-      }
-    };
-    
-    const handleError = (e: ErrorEvent) => {
-      console.error('Audio playback error:', e);
-      toast({
-        title: "Playback Error",
-        description: "There was an error playing this track. Please try another.",
-        variant: "destructive",
-      });
-    };
-    
-    // Add event listeners
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('durationchange', handleDurationChange);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError as EventListener);
-    
-    // Clean up event listeners
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('durationchange', handleDurationChange);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', handleError as EventListener);
-    };
-  }, [nextTrack, repeatMode]);
-  
-  // Update audio source when current track changes
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
-    
-    // In a real app, this would be the track's audio URL
-    // For our demo, we'll use a sample audio file
-    const audioUrl = currentTrack.audioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-    
-    // Only change source if it's different
-    if (audio.src !== audioUrl) {
-      audio.src = audioUrl;
-      audio.load();
-      
-      if (isPlaying) {
-        audio.play().catch(err => {
-          console.error('Error playing track:', err);
-          setIsPlaying(false);
-        });
-      }
-    }
-  }, [currentTrack, isPlaying]);
-  
-  // Update playback state
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    
-    if (isPlaying) {
-      audio.play().catch(err => {
-        console.error('Error playing track:', err);
-        setIsPlaying(false);
-      });
-    } else {
-      audio.pause();
-    }
-  }, [isPlaying]);
-  
-  // Update volume when changed
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
-  }, [volume]);
-
+  // Define functions first to avoid the "used before declaration" error
   const playTrack = (track: Track, playlist?: Playlist) => {
     setCurrentTrack(track);
     setIsPlaying(true);
@@ -231,6 +123,115 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
     setProgress(position);
   };
+  
+  // Initialize audio element
+  useEffect(() => {
+    audioRef.current = new Audio();
+    
+    // Set initial volume
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+    
+    // Clean up on unmount
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+  
+  // Handle audio events
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    const handleTimeUpdate = () => {
+      setProgress(audio.currentTime);
+    };
+    
+    const handleDurationChange = () => {
+      setDuration(audio.duration);
+    };
+    
+    const handleEnded = () => {
+      if (repeatMode === 'one') {
+        audio.currentTime = 0;
+        audio.play().catch(err => console.error('Error replaying track:', err));
+      } else {
+        nextTrack();
+      }
+    };
+    
+    const handleError = (e: ErrorEvent) => {
+      console.error('Audio playback error:', e);
+      toast({
+        title: "Playback Error",
+        description: "There was an error playing this track. Please try another.",
+        variant: "destructive",
+      });
+    };
+    
+    // Add event listeners
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('durationchange', handleDurationChange);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError as EventListener);
+    
+    // Clean up event listeners
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('durationchange', handleDurationChange);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError as EventListener);
+    };
+  }, [repeatMode]);
+  
+  // Update audio source when current track changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
+    
+    // In a real app, this would be the track's audio URL
+    // For our demo, we'll use a sample audio file
+    const audioUrl = currentTrack.audioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+    
+    // Only change source if it's different
+    if (audio.src !== audioUrl) {
+      audio.src = audioUrl;
+      audio.load();
+      
+      if (isPlaying) {
+        audio.play().catch(err => {
+          console.error('Error playing track:', err);
+          setIsPlaying(false);
+        });
+      }
+    }
+  }, [currentTrack, isPlaying]);
+  
+  // Update playback state
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    if (isPlaying) {
+      audio.play().catch(err => {
+        console.error('Error playing track:', err);
+        setIsPlaying(false);
+      });
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying]);
+  
+  // Update volume when changed
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
 
   return (
     <PlayerContext.Provider

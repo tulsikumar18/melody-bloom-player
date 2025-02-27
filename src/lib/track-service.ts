@@ -2,6 +2,7 @@
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Track } from './data';
+import { getAudioDuration } from './utils';
 
 export interface UploadTrackData {
   title: string;
@@ -18,7 +19,7 @@ export async function uploadTrack(data: UploadTrackData, userId: string): Promis
   const coverArtFileName = `${uuidv4()}-${coverArtFile.name.replace(/\s+/g, '-')}`;
   const coverArtPath = `covers/${userId}/${coverArtFileName}`;
   
-  const { error: coverArtError, data: coverArtData } = await supabase
+  const { error: coverArtError } = await supabase
     .storage
     .from('music-assets')
     .upload(coverArtPath, coverArtFile, {
@@ -34,7 +35,7 @@ export async function uploadTrack(data: UploadTrackData, userId: string): Promis
   const audioFileName = `${uuidv4()}-${audioFile.name.replace(/\s+/g, '-')}`;
   const audioPath = `tracks/${userId}/${audioFileName}`;
   
-  const { error: audioError, data: audioData } = await supabase
+  const { error: audioError } = await supabase
     .storage
     .from('music-assets')
     .upload(audioPath, audioFile, {
@@ -57,9 +58,15 @@ export async function uploadTrack(data: UploadTrackData, userId: string): Promis
     .from('music-assets')
     .getPublicUrl(audioPath).data.publicUrl;
   
-  // Calculate duration (in a real app, you would analyze the audio file)
-  // For now, we'll use a dummy value
-  const duration = 180; // 3 minutes
+  // Calculate duration
+  let duration: number;
+  try {
+    duration = await getAudioDuration(audioFile);
+  } catch (error) {
+    console.error('Error calculating duration:', error);
+    // Default to estimated duration if we can't calculate it
+    duration = 180; // 3 minutes
+  }
   
   // Insert track record into database
   const { data: trackData, error: trackError } = await supabase
@@ -101,6 +108,35 @@ export async function getUserTracks(userId: string): Promise<Track[]> {
   
   if (error) {
     throw new Error(`Error fetching user tracks: ${error.message}`);
+  }
+  
+  if (!data) {
+    return [];
+  }
+  
+  return data.map(track => ({
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    coverArt: track.cover_art,
+    duration: track.duration,
+    audioUrl: track.audio_url,
+  }));
+}
+
+export async function getAllTracks(): Promise<Track[]> {
+  const { data, error } = await supabase
+    .from('tracks')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    throw new Error(`Error fetching tracks: ${error.message}`);
+  }
+  
+  if (!data) {
+    return [];
   }
   
   return data.map(track => ({
