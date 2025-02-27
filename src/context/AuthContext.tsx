@@ -59,30 +59,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
-      if (data.user) {
+      if (data?.user) {
         // Create a profile for the user
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
+          .insert([{
             id: data.user.id,
             username,
             avatar_url: null,
             full_name: null,
-          });
+          }]);
 
         if (profileError) {
-          throw profileError;
+          console.error("Profile creation error:", profileError);
+          toast({
+            title: "Profile Creation Warning",
+            description: "Account created but profile setup had an issue. Some features may be limited.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Account created",
+            description: "Please check your email to confirm your account",
+          });
         }
-
-        toast({
-          title: "Account created",
-          description: "Please check your email to confirm your account",
-        });
       }
     } catch (error: any) {
+      console.error("Sign up error:", error);
       toast({
         title: "Error creating account",
-        description: error.message,
+        description: error.message || "There was an error creating your account",
         variant: "destructive",
       });
       throw error;
@@ -94,20 +100,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
 
       if (error) {
         throw error;
       }
 
-      toast({
-        title: "Welcome back!",
-        description: "You've been successfully logged in.",
-      });
+      if (data?.user) {
+        setUser(data.user);
+        setSession(data.session);
+        
+        toast({
+          title: "Welcome back!",
+          description: "You've been successfully logged in.",
+        });
+      }
     } catch (error: any) {
+      console.error("Sign in error:", error);
       toast({
         title: "Error signing in",
-        description: error.message,
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
       throw error;
@@ -125,6 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
+      setUser(null);
+      setSession(null);
+      
       toast({
         title: "Signed out",
         description: "You've been logged out successfully.",
@@ -132,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       toast({
         title: "Error signing out",
-        description: error.message,
+        description: error.message || "There was an error signing out",
         variant: "destructive",
       });
     } finally {

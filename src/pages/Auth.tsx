@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from '@/components/ui/use-toast';
 
 export default function Auth() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -15,23 +16,77 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  
+  // If user is already logged in, redirect to home
+  React.useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+  
+  const validateForm = () => {
+    setError(null);
+    
+    if (!email) {
+      setError('Email is required');
+      return false;
+    }
+    
+    if (!password) {
+      setError('Password is required');
+      return false;
+    }
+    
+    if (isRegistering && !username) {
+      setError('Username is required');
+      return false;
+    }
+    
+    // Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    
+    // Password validation - at least 6 characters
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return false;
+    }
+    
+    return true;
+  };
   
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       if (isRegistering) {
         await signUp(email, password, username);
+        toast({
+          title: "Registration successful",
+          description: "You can now sign in with your new account",
+        });
+        // After registration, switch to the login tab
+        setIsRegistering(false);
       } else {
         await signIn(email, password);
         navigate('/');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Authentication error:', error);
+      setError(error.message || 'Authentication failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -53,6 +108,12 @@ export default function Auth() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
+            
+            {error && (
+              <div className="mx-6 mt-4 p-3 bg-destructive/15 text-destructive text-sm rounded-md">
+                {error}
+              </div>
+            )}
             
             <TabsContent value="login">
               <form onSubmit={handleAuth}>

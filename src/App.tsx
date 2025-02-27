@@ -21,6 +21,7 @@ import Auth from "./pages/Auth";
 import Sidebar from "./components/layout/Sidebar";
 import MobileNavbar from "./components/layout/MobileNavbar";
 import NowPlaying from "./components/music/NowPlaying";
+import Chatbot from "./components/chatbot/Chatbot";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
                 </Routes>
                 <NowPlaying />
                 <MobileNavbar />
+                <Chatbot />
               </div>
             </div>
           </BrowserRouter>

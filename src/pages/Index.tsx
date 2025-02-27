@@ -3,9 +3,18 @@ import React from 'react';
 import PageContainer from '@/components/layout/PageContainer';
 import PlaylistCard from '@/components/music/PlaylistCard';
 import { categories, playlists } from '@/lib/data';
+import { usePlayer } from '@/context/PlayerContext';
+import { Play } from 'lucide-react';
 
 export default function Index() {
   const featuredPlaylist = playlists[0]; // First playlist as featured
+  const { playTrack } = usePlayer();
+  
+  // Placeholder track data for the recent tracks section
+  const recentTracks = playlists[0].tracks.slice(0, 4).map(track => ({
+    ...track,
+    coverArt: track.coverArt || 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=250&h=250&q=80',
+  }));
   
   return (
     <PageContainer>
@@ -24,7 +33,10 @@ export default function Index() {
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{featuredPlaylist.name}</h1>
           <p className="text-white/80 max-w-xl">{featuredPlaylist.description}</p>
           <div className="flex gap-4 mt-4">
-            <button className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors">
+            <button 
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
+              onClick={() => playTrack(featuredPlaylist.tracks[0], featuredPlaylist)}
+            >
               Play Now
             </button>
             <button className="px-6 py-2 bg-white/10 text-white rounded-full font-medium backdrop-blur-sm hover:bg-white/20 transition-colors">
@@ -52,12 +64,13 @@ export default function Index() {
       
       {/* Recent Tracks Section */}
       <section className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Recently Played</h2>
+        <h2 className="text-2xl font-bold mt-12 mb-4">Recently Played</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {playlists[0].tracks.slice(0, 4).map((track, index) => (
+          {recentTracks.map((track, index) => (
             <div 
-              key={track.id}
-              className="flex items-center gap-3 p-3 rounded-md bg-card hover:bg-secondary/50 transition-colors"
+              key={track.id + index}
+              className="flex items-center gap-3 p-3 rounded-md bg-card hover:bg-secondary/50 transition-colors cursor-pointer"
+              onClick={() => playTrack(track)}
             >
               <img 
                 src={track.coverArt}
