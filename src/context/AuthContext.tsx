@@ -22,11 +22,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const getInitialSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session fetch error:", error.message);
+          setLoading(false);
+          return;
+        }
+        
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      } catch (error) {
+        console.error("Failed to fetch initial session:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -45,6 +60,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, username: string) => {
     try {
       setLoading(true);
+      
+      // Check network connection before proceeding
+      try {
+        await fetch('https://yyjsfopaebnuaupynoxj.supabase.co', { method: 'HEAD', mode: 'no-cors' });
+      } catch (networkError) {
+        throw new Error("Network connection error. Please check your internet connection and try again.");
+      }
+      
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -86,9 +109,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       console.error("Sign up error:", error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = "There was an error creating your account";
+      
+      if (error.message?.includes("Failed to fetch") || error.message?.includes("Network")) {
+        errorMessage = "Connection issue detected. Please check your internet connection and try again.";
+      } else if (error.message?.includes("already registered")) {
+        errorMessage = "This email is already registered. Please use another email or try logging in.";
+      }
+      
       toast({
         title: "Error creating account",
-        description: error.message || "There was an error creating your account",
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
@@ -100,6 +133,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
+      
+      // Check network connection before proceeding
+      try {
+        await fetch('https://yyjsfopaebnuaupynoxj.supabase.co', { method: 'HEAD', mode: 'no-cors' });
+      } catch (networkError) {
+        throw new Error("Network connection error. Please check your internet connection and try again.");
+      }
+      
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
@@ -120,9 +161,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       console.error("Sign in error:", error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = "Invalid email or password";
+      
+      if (error.message?.includes("Failed to fetch") || error.message?.includes("Network")) {
+        errorMessage = "Connection issue detected. Please check your internet connection and try again.";
+      } else if (error.message?.includes("Invalid login credentials")) {
+        errorMessage = "Invalid email or password. Please try again.";
+      }
+      
       toast({
         title: "Error signing in",
-        description: error.message || "Invalid email or password",
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;

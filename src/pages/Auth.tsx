@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from '@/components/layout/PageContainer';
@@ -9,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
+import { AlertCircle } from 'lucide-react';
 
 export default function Auth() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -17,9 +17,25 @@ export default function Auth() {
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
   
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  
+  // Check online status
+  React.useEffect(() => {
+    const handleOnlineStatus = () => {
+      setIsOnline(navigator.onLine);
+    };
+    
+    window.addEventListener('online', handleOnlineStatus);
+    window.addEventListener('offline', handleOnlineStatus);
+    
+    return () => {
+      window.removeEventListener('online', handleOnlineStatus);
+      window.removeEventListener('offline', handleOnlineStatus);
+    };
+  }, []);
   
   // If user is already logged in, redirect to home
   React.useEffect(() => {
@@ -30,6 +46,11 @@ export default function Auth() {
   
   const validateForm = () => {
     setError(null);
+    
+    if (!isOnline) {
+      setError('You appear to be offline. Please check your internet connection and try again.');
+      return false;
+    }
     
     if (!email) {
       setError('Email is required');
@@ -86,7 +107,9 @@ export default function Auth() {
       }
     } catch (error: any) {
       console.error('Authentication error:', error);
-      setError(error.message || 'Authentication failed. Please try again.');
+      
+      // Error is already handled and displayed by the AuthContext
+      // We just need to make sure loading state is updated
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +126,13 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           
+          {!isOnline && (
+            <div className="mx-6 mb-2 p-3 bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 text-sm rounded-md flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              You are currently offline. Please check your internet connection.
+            </div>
+          )}
+          
           <Tabs defaultValue="login" onValueChange={(value) => setIsRegistering(value === 'register')}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
@@ -110,7 +140,8 @@ export default function Auth() {
             </TabsList>
             
             {error && (
-              <div className="mx-6 mt-4 p-3 bg-destructive/15 text-destructive text-sm rounded-md">
+              <div className="mx-6 mt-4 p-3 bg-destructive/15 text-destructive text-sm rounded-md flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2" />
                 {error}
               </div>
             )}
@@ -147,7 +178,7 @@ export default function Auth() {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isLoading}
+                    disabled={isLoading || !isOnline}
                   >
                     {isLoading ? 'Signing in...' : 'Sign In'}
                   </Button>
@@ -199,7 +230,7 @@ export default function Auth() {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isLoading}
+                    disabled={isLoading || !isOnline}
                   >
                     {isLoading ? 'Creating Account...' : 'Create Account'}
                   </Button>
