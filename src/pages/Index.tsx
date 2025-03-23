@@ -1,20 +1,44 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PageContainer from '@/components/layout/PageContainer';
 import PlaylistCard from '@/components/music/PlaylistCard';
 import { categories, playlists } from '@/lib/data';
 import { usePlayer } from '@/context/PlayerContext';
 import { Play } from 'lucide-react';
+import { Track } from '@/lib/data';
+import { getAllTracks } from '@/lib/track-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Index() {
   const featuredPlaylist = playlists[0]; // First playlist as featured
   const { playTrack } = usePlayer();
+  const [recentTracks, setRecentTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  // Placeholder track data for the recent tracks section
-  const recentTracks = playlists[0].tracks.slice(0, 4).map(track => ({
-    ...track,
-    coverArt: track.coverArt || 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=250&h=250&q=80',
-  }));
+  useEffect(() => {
+    const fetchRecentTracks = async () => {
+      try {
+        setLoading(true);
+        const tracks = await getAllTracks();
+        // Take the first 4 tracks
+        setRecentTracks(tracks.slice(0, 4));
+      } catch (error) {
+        console.error('Error fetching recent tracks:', error);
+        // Use placeholder data if we can't fetch
+        setRecentTracks(playlists[0].tracks.slice(0, 4).map(track => ({
+          ...track,
+          coverArt: track.coverArt || 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=250&h=250&q=80',
+        })));
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchRecentTracks();
+  }, []);
+  
+  // Default fallback image
+  const fallbackCoverArt = 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=250&h=250&q=80';
   
   return (
     <PageContainer>
@@ -22,9 +46,13 @@ export default function Index() {
       <div className="relative mb-12 rounded-xl overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background z-10"></div>
         <img 
-          src={featuredPlaylist.coverArt} 
+          src={featuredPlaylist.coverArt || fallbackCoverArt} 
           alt="Featured" 
           className="w-full h-64 md:h-80 object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = fallbackCoverArt;
+          }}
         />
         <div className="absolute bottom-0 left-0 z-20 p-6 w-full">
           <span className="inline-block px-2 py-1 bg-primary/80 text-primary-foreground text-xs rounded-full mb-2">
@@ -66,23 +94,44 @@ export default function Index() {
       <section className="mb-6">
         <h2 className="text-2xl font-bold mt-12 mb-4">Recently Played</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {recentTracks.map((track, index) => (
-            <div 
-              key={track.id + index}
-              className="flex items-center gap-3 p-3 rounded-md bg-card hover:bg-secondary/50 transition-colors cursor-pointer"
-              onClick={() => playTrack(track)}
-            >
-              <img 
-                src={track.coverArt}
-                alt={track.title}
-                className="h-12 w-12 rounded object-cover"
-              />
-              <div>
-                <h4 className="font-medium text-foreground">{track.title}</h4>
-                <p className="text-sm text-muted-foreground">{track.artist}</p>
+          {loading ? (
+            // Loading skeletons
+            Array(4).fill(0).map((_, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 rounded-md bg-card">
+                <Skeleton className="h-12 w-12 rounded" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
               </div>
+            ))
+          ) : recentTracks.length > 0 ? (
+            recentTracks.map((track, index) => (
+              <div 
+                key={track.id + index}
+                className="flex items-center gap-3 p-3 rounded-md bg-card hover:bg-secondary/50 transition-colors cursor-pointer"
+                onClick={() => playTrack(track)}
+              >
+                <img 
+                  src={track.coverArt || fallbackCoverArt}
+                  alt={track.title}
+                  className="h-12 w-12 rounded object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = fallbackCoverArt;
+                  }}
+                />
+                <div>
+                  <h4 className="font-medium text-foreground">{track.title}</h4>
+                  <p className="text-sm text-muted-foreground">{track.artist}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-6 text-muted-foreground">
+              No recent tracks. Start playing music to see your history!
             </div>
-          ))}
+          )}
         </div>
       </section>
     </PageContainer>

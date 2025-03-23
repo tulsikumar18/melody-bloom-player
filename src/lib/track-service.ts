@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Track } from './data';
 import { getAudioDuration } from './utils';
+import { toast } from '@/components/ui/use-toast';
 
 export interface UploadTrackData {
   title: string;
@@ -15,6 +16,31 @@ export interface UploadTrackData {
 export async function uploadTrack(data: UploadTrackData, userId: string): Promise<Track> {
   const { title, artist, album, coverArtFile, audioFile } = data;
   
+  // Check if the music-assets bucket exists, create if it doesn't
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const musicAssetsBucket = buckets?.find(bucket => bucket.name === 'music-assets');
+  
+  if (!musicAssetsBucket) {
+    const { error: createBucketError } = await supabase.storage.createBucket('music-assets', {
+      public: true,
+      fileSizeLimit: 50 * 1024 * 1024, // 50MB limit for files
+    });
+    
+    if (createBucketError) {
+      console.error('Failed to create bucket:', createBucketError);
+      throw new Error(`Failed to create storage bucket: ${createBucketError.message}`);
+    }
+  }
+  
+  // Ensure the necessary folders exist
+  try {
+    // These won't error if the folders already exist
+    await supabase.storage.from('music-assets').upload(`covers/${userId}/.folder`, new Blob(['']));
+    await supabase.storage.from('music-assets').upload(`tracks/${userId}/.folder`, new Blob(['']));
+  } catch (error) {
+    // Ignore errors for folder creation as they're expected if folders exist
+  }
+  
   // Upload cover art to storage
   const coverArtFileName = `${uuidv4()}-${coverArtFile.name.replace(/\s+/g, '-')}`;
   const coverArtPath = `covers/${userId}/${coverArtFileName}`;
@@ -24,10 +50,11 @@ export async function uploadTrack(data: UploadTrackData, userId: string): Promis
     .from('music-assets')
     .upload(coverArtPath, coverArtFile, {
       cacheControl: '3600',
-      upsert: false,
+      upsert: true, // Changed to true to overwrite if exists
     });
   
   if (coverArtError) {
+    console.error('Cover art upload error:', coverArtError);
     throw new Error(`Error uploading cover art: ${coverArtError.message}`);
   }
   
@@ -40,10 +67,11 @@ export async function uploadTrack(data: UploadTrackData, userId: string): Promis
     .from('music-assets')
     .upload(audioPath, audioFile, {
       cacheControl: '3600',
-      upsert: false,
+      upsert: true, // Changed to true to overwrite if exists
     });
   
   if (audioError) {
+    console.error('Audio upload error:', audioError);
     throw new Error(`Error uploading audio file: ${audioError.message}`);
   }
   
@@ -84,6 +112,7 @@ export async function uploadTrack(data: UploadTrackData, userId: string): Promis
     .single();
   
   if (trackError) {
+    console.error('Database insert error:', trackError);
     throw new Error(`Error adding track to database: ${trackError.message}`);
   }
   

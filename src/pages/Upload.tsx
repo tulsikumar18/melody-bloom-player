@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { UploadTrackData, uploadTrack } from '@/lib/track-service';
-import { UploadCloud, Music } from 'lucide-react';
+import { UploadCloud, Music, AlertTriangle } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Upload() {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export default function Upload() {
   const [coverArtPreview, setCoverArtPreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [audioInfo, setAudioInfo] = useState<{ duration: string, size: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   // Redirect to auth page if not logged in
   React.useEffect(() => {
@@ -39,6 +41,7 @@ export default function Upload() {
   }, [user, navigate]);
   
   const handleCoverArtChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
@@ -74,6 +77,7 @@ export default function Upload() {
   };
   
   const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
@@ -127,6 +131,7 @@ export default function Upload() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!user) {
       toast({
@@ -199,6 +204,7 @@ export default function Upload() {
       
     } catch (error: any) {
       console.error('Upload error:', error);
+      setError(error.message || "There was an error uploading your track.");
       toast({
         title: "Upload Failed",
         description: error.message || "There was an error uploading your track.",
@@ -213,6 +219,15 @@ export default function Upload() {
     <PageContainer>
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Upload Your Music</h1>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
         
         <Card className="shadow-md">
           <CardHeader>
